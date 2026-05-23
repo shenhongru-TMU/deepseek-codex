@@ -21,6 +21,12 @@ DEEPSEEK_API_KEY=... npm run dev
 
 The proxy listens on `127.0.0.1:8787` by default.
 
+You can check it in a browser at `http://127.0.0.1:8787/v1`, or from a terminal:
+
+```bash
+curl --noproxy '*' http://127.0.0.1:8787/v1
+```
+
 ## Environment
 
 ```bash
@@ -31,9 +37,12 @@ DEEPSEEK_DEFAULT_MODEL=deepseek-v4-pro
 DEEPSEEK_THINKING=enabled
 DEEPSEEK_REASONING_EFFORT=high
 LOG_LEVEL=info
+NO_PROXY=127.0.0.1,localhost,::1
+no_proxy=127.0.0.1,localhost,::1
 ```
 
 `DEEPSEEK_THINKING` must be `enabled` or `disabled`. `DEEPSEEK_REASONING_EFFORT` must be `high` or `max`.
+Set `NO_PROXY`/`no_proxy` if your shell uses `http_proxy`, `https_proxy`, or `ALL_PROXY`; Codex and curl should connect to the local proxy directly.
 
 ## Codex Configuration
 
@@ -55,6 +64,7 @@ Codex will send Responses API traffic to this proxy. The proxy forwards only the
 ## Endpoints
 
 - `GET /healthz`: readiness check.
+- `GET /v1`: endpoint index for browser and curl checks.
 - `GET /v1/models`: Codex-compatible DeepSeek V4 model catalog.
 - `POST /v1/responses`: Responses-compatible endpoint translated to DeepSeek `/chat/completions`.
 
@@ -83,4 +93,3 @@ codex exec \
   -c 'model_providers.deepseek-v4={name="DeepSeek V4 via local proxy", base_url="http://127.0.0.1:8787/v1", env_key="DEEPSEEK_API_KEY", wire_api="responses"}' \
   'Reply with ok only.'
 ```
-
