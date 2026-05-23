@@ -35,6 +35,15 @@ async function routeRequest(
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/v1") {
+    sendJson(res, 200, {
+      ok: true,
+      service: "deepseek-codex-proxy",
+      endpoints: ["/healthz", "/v1/models", "/v1/responses"],
+    });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/v1/models") {
     sendJson(res, 200, buildModelsResponse());
     return;
@@ -170,4 +179,3 @@ function openAiError(message: string, status: number): { error: { message: strin
 function errorToString(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
-

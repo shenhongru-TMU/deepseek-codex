@@ -95,6 +95,13 @@ describe("proxy server", () => {
     const health = await fetch(`http://127.0.0.1:${addressPort(proxy)}/healthz`);
     expect(await health.json()).toEqual({ ok: true });
 
+    const root = await fetch(`http://127.0.0.1:${addressPort(proxy)}/v1`);
+    expect(await root.json()).toEqual({
+      ok: true,
+      service: "deepseek-codex-proxy",
+      endpoints: ["/healthz", "/v1/models", "/v1/responses"],
+    });
+
     const models = await fetch(`http://127.0.0.1:${addressPort(proxy)}/v1/models`);
     expect(await models.json()).toMatchObject({
       models: [{ slug: "deepseek-v4-pro" }, { slug: "deepseek-v4-flash" }],
@@ -115,4 +122,3 @@ function addressPort(server: Server): number {
   }
   return address.port;
 }
-
