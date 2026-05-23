@@ -6,11 +6,16 @@ import type { Logger, ProxyConfig, ResponsesRequest } from "./types.js";
 import { fetchDeepSeekChat, parseDeepSeekSse, ProviderError, readNonStreamCompletion } from "./upstream.js";
 
 const MAX_BODY_BYTES = 64 * 1024 * 1024;
+const MAX_REASONING_SESSIONS = 100;
+
+type ReasoningStore = Map<string, Map<string, string>>;
 
 export function createProxyServer(config: ProxyConfig, logger: Logger): Server {
+  const reasoningStore: ReasoningStore = new Map();
+
   return createHttpServer(async (req, res) => {
     try {
-      await routeRequest(req, res, config, logger);
+      await routeRequest(req, res, config, logger, reasoningStore);
     } catch (error) {
       logger.error("Unhandled request error", { error: errorToString(error) });
       if (!res.headersSent) {
@@ -27,6 +32,7 @@ async function routeRequest(
   res: ServerResponse,
   config: ProxyConfig,
   logger: Logger,
+  reasoningStore: ReasoningStore,
 ): Promise<void> {
   const url = new URL(req.url || "/", `http://${req.headers.host || "127.0.0.1"}`);
 
@@ -50,7 +56,7 @@ async function routeRequest(
   }
 
   if (req.method === "POST" && url.pathname === "/v1/responses") {
-    await handleResponses(req, res, config, logger);
+    await handleResponses(req, res, config, logger, reasoningStore);
     return;
   }
 
@@ -62,6 +68,7 @@ async function handleResponses(
   res: ServerResponse,
   config: ProxyConfig,
   logger: Logger,
+  reasoningStore: ReasoningStore,
 ): Promise<void> {
   let request: ResponsesRequest;
   try {
@@ -71,7 +78,8 @@ async function handleResponses(
     return;
   }
 
-  const chatRequest = translateResponsesRequest(request, config, logger);
+  const sessionKey = getSessionKey(req);
+  const chatRequest = translateResponsesRequest(request, config, logger, reasoningStore.get(sessionKey));
   logger.debug("Translated Responses request", {
     model: chatRequest.model,
     messageCount: chatRequest.messages.length,
@@ -80,7 +88,7 @@ async function handleResponses(
   });
 
   if (chatRequest.stream) {
-    await handleStreamingResponse(res, chatRequest, config, logger);
+    await handleStreamingResponse(res, chatRequest, config, logger, reasoningStore, sessionKey);
     return;
   }
 
@@ -92,6 +100,8 @@ async function handleStreamingResponse(
   chatRequest: ReturnType<typeof translateResponsesRequest>,
   config: ProxyConfig,
   logger: Logger,
+  reasoningStore: ReasoningStore,
+  sessionKey: string,
 ): Promise<void> {
   res.writeHead(200, {
     "content-type": "text/event-stream; charset=utf-8",
@@ -116,7 +126,9 @@ async function handleStreamingResponse(
       }
     }
 
-    for (const event of translator.finish()) {
+    const finishEvents = translator.finish();
+    mergeReasoningContent(reasoningStore, sessionKey, translator.getReasoningContentByCallId());
+    for (const event of finishEvents) {
       res.write(encodeSse(event));
     }
     res.end();
@@ -174,6 +186,51 @@ function openAiError(message: string, status: number): { error: { message: strin
       code: status,
     },
   };
+}
+
+function getSessionKey(req: IncomingMessage): string {
+  return (
+    getHeader(req, "session-id") ||
+    getHeader(req, "thread-id") ||
+    getHeader(req, "x-client-request-id") ||
+    "default"
+  );
+}
+
+function getHeader(req: IncomingMessage, name: string): string | undefined {
+  const value = req.headers[name];
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
+}
+
+function mergeReasoningContent(
+  store: ReasoningStore,
+  sessionKey: string,
+  reasoningContentByCallId: Map<string, string>,
+): void {
+  if (reasoningContentByCallId.size === 0) {
+    return;
+  }
+
+  let sessionStore = store.get(sessionKey);
+  if (!sessionStore) {
+    sessionStore = new Map();
+    store.set(sessionKey, sessionStore);
+  }
+
+  for (const [callId, reasoningContent] of reasoningContentByCallId) {
+    sessionStore.set(callId, reasoningContent);
+  }
+
+  while (store.size > MAX_REASONING_SESSIONS) {
+    const firstKey = store.keys().next().value;
+    if (!firstKey) {
+      break;
+    }
+    store.delete(firstKey);
+  }
 }
 
 function errorToString(error: unknown): string {

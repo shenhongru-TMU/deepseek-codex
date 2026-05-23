@@ -33,6 +33,16 @@ describe("SSE translation", () => {
           {
             index: 0,
             delta: {
+              reasoning_content: "Need to run the command.",
+            },
+          },
+        ],
+      }),
+      ...translator.acceptChunk({
+        choices: [
+          {
+            index: 0,
+            delta: {
               tool_calls: [
                 {
                   index: 0,
@@ -65,6 +75,10 @@ describe("SSE translation", () => {
 
     expect(events.map((event) => event.type)).toContain("response.function_call_arguments.delta");
     expect(events.map((event) => event.type)).toContain("response.function_call_arguments.done");
+    expect(events.map((event) => event.type)).not.toContain("response.reasoning_text.delta");
+    expect(translator.getReasoningContentByCallId()).toEqual(
+      new Map([["call_1", "Need to run the command."]]),
+    );
     expect(events.at(-1)).toMatchObject({
       response: {
         output: [

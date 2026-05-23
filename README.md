@@ -41,7 +41,7 @@ NO_PROXY=127.0.0.1,localhost,::1
 no_proxy=127.0.0.1,localhost,::1
 ```
 
-`DEEPSEEK_THINKING` must be `enabled` or `disabled`. `DEEPSEEK_REASONING_EFFORT` must be `high` or `max`.
+`DEEPSEEK_THINKING` should stay `enabled` for best model quality. The proxy preserves DeepSeek `reasoning_content` across tool-call turns so thinking mode can work with Codex shell/function tools. `DEEPSEEK_REASONING_EFFORT` must be `high` or `max`.
 Set `NO_PROXY`/`no_proxy` if your shell uses `http_proxy`, `https_proxy`, or `ALL_PROXY`; Codex and curl should connect to the local proxy directly.
 
 ## Codex Configuration
@@ -59,7 +59,7 @@ env_key = "DEEPSEEK_API_KEY"
 wire_api = "responses"
 ```
 
-Codex will send Responses API traffic to this proxy. The proxy forwards only the features DeepSeek Chat Completions can handle: text, function tools, and tool results. Built-in OpenAI tools such as web search and image generation are filtered out for v1.
+Codex will send Responses API traffic to this proxy. The proxy forwards only the features DeepSeek Chat Completions can handle: text, function tools, and tool results. Built-in OpenAI-hosted tools such as web search and image generation are filtered out for v1, because DeepSeek's API cannot execute OpenAI-hosted tools.
 
 ## Endpoints
 

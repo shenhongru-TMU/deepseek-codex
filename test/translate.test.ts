@@ -88,6 +88,18 @@ describe("translateResponsesRequest", () => {
     expect(chat.reasoning_effort).toBe("max");
   });
 
+  it("omits reasoning effort when thinking is disabled", () => {
+    const chat = translateResponsesRequest(
+      {
+        reasoning: { effort: "xhigh" },
+      },
+      { ...config, thinking: "disabled" },
+    );
+
+    expect(chat.thinking).toEqual({ type: "disabled" });
+    expect(chat.reasoning_effort).toBeUndefined();
+  });
+
   it("converts function call output to a tool message", () => {
     const chat = translateResponsesRequest(
       {
@@ -123,5 +135,27 @@ describe("translateResponsesRequest", () => {
       { role: "tool", tool_call_id: "call_123", content: "done" },
     ]);
   });
-});
 
+  it("reattaches stored reasoning content to assistant tool calls", () => {
+    const chat = translateResponsesRequest(
+      {
+        input: [
+          {
+            type: "function_call",
+            call_id: "call_123",
+            name: "exec_command",
+            arguments: "{\"cmd\":\"pwd\"}",
+          },
+        ],
+      },
+      config,
+      undefined,
+      new Map([["call_123", "Need to inspect the working directory."]]),
+    );
+
+    expect(chat.messages[0]).toMatchObject({
+      role: "assistant",
+      reasoning_content: "Need to inspect the working directory.",
+    });
+  });
+});

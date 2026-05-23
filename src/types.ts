@@ -44,6 +44,7 @@ export interface ChatMessage {
   content?: string | null;
   tool_call_id?: string;
   tool_calls?: ChatToolCall[];
+  reasoning_content?: string;
 }
 
 export interface ChatToolCall {
@@ -71,7 +72,7 @@ export interface DeepSeekChatRequest {
   tools?: ChatTool[];
   tool_choice?: unknown;
   thinking: { type: ThinkingMode };
-  reasoning_effort: ReasoningEffort;
+  reasoning_effort?: ReasoningEffort;
   max_tokens?: number;
 }
 
@@ -110,6 +111,7 @@ export interface DeepSeekChatCompletion {
     message?: {
       role?: string;
       content?: string | null;
+      reasoning_content?: string | null;
       tool_calls?: ChatToolCall[];
     };
   }>;
@@ -173,4 +175,3 @@ export interface ResponseObject {
   output: ResponseOutputItem[];
   usage?: ResponsesUsage;
 }
-

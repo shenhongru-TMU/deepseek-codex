@@ -24,6 +24,7 @@ interface StreamState {
   textItem?: ResponseMessageItem;
   textStarted: boolean;
   text: string;
+  reasoningContent: string;
   toolCalls: Map<number, ResponseFunctionCallItem>;
   usage?: ResponsesUsage;
   nextOutputIndex: number;
@@ -96,6 +97,7 @@ export function createStreamTranslator(responseId: string, model: string): {
   start: () => SseEvent[];
   acceptChunk: (chunk: DeepSeekChatChunk) => SseEvent[];
   finish: () => SseEvent[];
+  getReasoningContentByCallId: () => Map<string, string>;
 } {
   const state: StreamState = {
     responseId,
@@ -104,6 +106,7 @@ export function createStreamTranslator(responseId: string, model: string): {
     output: [],
     textStarted: false,
     text: "",
+    reasoningContent: "",
     toolCalls: new Map(),
     nextOutputIndex: 0,
   };
@@ -117,6 +120,7 @@ export function createStreamTranslator(responseId: string, model: string): {
     ],
     acceptChunk: (chunk) => acceptChunk(state, chunk),
     finish: () => finishStream(state),
+    getReasoningContentByCallId: () => getReasoningContentByCallId(state),
   };
 }
 
@@ -157,6 +161,7 @@ function acceptChunk(state: StreamState, chunk: DeepSeekChatChunk): SseEvent[] {
     }
 
     if (typeof delta.reasoning_content === "string" && delta.reasoning_content.length > 0) {
+      state.reasoningContent += delta.reasoning_content;
       continue;
     }
 
@@ -332,6 +337,20 @@ function createFunctionCallItem(
     name: call.function.name,
     arguments: call.function.arguments,
   };
+}
+
+function getReasoningContentByCallId(state: StreamState): Map<string, string> {
+  const byCallId = new Map<string, string>();
+  const reasoningContent = state.reasoningContent.trim();
+  if (!reasoningContent) {
+    return byCallId;
+  }
+
+  for (const item of state.toolCalls.values()) {
+    byCallId.set(item.call_id, reasoningContent);
+  }
+
+  return byCallId;
 }
 
 function emptyUsage(): ResponsesUsage {

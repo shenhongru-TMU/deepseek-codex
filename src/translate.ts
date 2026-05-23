@@ -16,13 +16,14 @@ export function translateResponsesRequest(
   request: ResponsesRequest,
   config: ProxyConfig,
   logger?: Logger,
+  reasoningContentByCallId?: ReadonlyMap<string, string>,
 ): DeepSeekChatRequest {
   const messages: ChatMessage[] = [];
   if (typeof request.instructions === "string" && request.instructions.trim()) {
     messages.push({ role: "system", content: request.instructions });
   }
 
-  messages.push(...translateInput(request.input));
+  messages.push(...translateInput(request.input, reasoningContentByCallId));
 
   const tools = translateTools(request.tools, logger);
   const chatRequest: DeepSeekChatRequest = {
@@ -30,8 +31,11 @@ export function translateResponsesRequest(
     messages,
     stream: request.stream !== false,
     thinking: { type: config.thinking },
-    reasoning_effort: mapReasoningEffort(request.reasoning?.effort, config.reasoningEffort),
   };
+
+  if (config.thinking === "enabled") {
+    chatRequest.reasoning_effort = mapReasoningEffort(request.reasoning?.effort, config.reasoningEffort);
+  }
 
   if (tools.length > 0) {
     chatRequest.tools = tools;
@@ -47,7 +51,10 @@ export function translateResponsesRequest(
   return chatRequest;
 }
 
-export function translateInput(input: unknown): ChatMessage[] {
+export function translateInput(
+  input: unknown,
+  reasoningContentByCallId: ReadonlyMap<string, string> = new Map(),
+): ChatMessage[] {
   if (typeof input === "string") {
     return [{ role: "user", content: input }];
   }
@@ -77,7 +84,7 @@ export function translateInput(input: unknown): ChatMessage[] {
     if (item.type === "function_call") {
       const name = stringValue(item.name) || "unknown_function";
       const callId = stringValue(item.call_id) || stringValue(item.id) || `call_${messages.length}`;
-      messages.push({
+      const assistantMessage: ChatMessage = {
         role: "assistant",
         content: null,
         tool_calls: [
@@ -90,7 +97,12 @@ export function translateInput(input: unknown): ChatMessage[] {
             },
           },
         ],
-      });
+      };
+      const reasoningContent = reasoningContentByCallId.get(callId);
+      if (reasoningContent) {
+        assistantMessage.reasoning_content = reasoningContent;
+      }
+      messages.push(assistantMessage);
       continue;
     }
 
@@ -248,4 +260,3 @@ function stringValue(value: unknown): string | undefined {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
-
