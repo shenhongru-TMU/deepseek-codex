@@ -1,0 +1,30 @@
+{
+  "name": "deepseek-codex-proxy",
+  "version": "0.1.0",
+  "description": "Local Responses API proxy that lets Codex use DeepSeek V4 Chat Completions.",
+  "type": "module",
+  "bin": {
+    "deepseek-codex-proxy": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    ".env.example"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}
